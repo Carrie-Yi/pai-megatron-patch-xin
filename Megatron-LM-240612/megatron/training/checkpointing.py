@@ -802,7 +802,8 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
             restore_modelopt_state(model, state_dict)
 
     # Model.
-    strict = False if args.retro_add_retriever else strict
+    strict = False
+    # strict = False if args.retro_add_retriever else strict
     if len(model) == 1:
         model[0].load_state_dict(state_dict['model'], strict=strict)
     else:
