@@ -17,7 +17,9 @@ from dataclasses import dataclass
 from typing import Union
 import torch
 from megatron.core import parallel_state, tensor_parallel
-from megatron.core.models.common.embeddings.rotary_pos_embedding import apply_rotary_pos_emb
+# from megatron.core.models.common.embeddings.rotary_pos_embedding import apply_rotary_pos_emb
+from megatron_patch.model.deepseek_v2.yarn_rotary_pos_embedding import DeepseekV2YarnRotaryEmbedding, \
+    apply_rotary_pos_emb, yarn_get_mscale # kexin debug yarn
 from megatron.core.parallel_state import (
     get_data_parallel_group,
     get_data_parallel_rank,
@@ -86,6 +88,11 @@ class Attention(MegatronModule, ABC):
         self.num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
         self.num_query_groups_per_partition = divide(self.config.num_query_groups, world_size)
 
+        self.q_head_dim = self.config.qk_nope_head_dim + self.config.qk_rope_head_dim
+        self.softmax_scale = self.q_head_dim ** (-0.5)
+        mscale = yarn_get_mscale(40, 0.707)
+        self.softmax_scale = self.softmax_scale * mscale * mscale
+        
         self.core_attention = build_module(
             submodules.core_attention,
             config=self.config,
@@ -109,7 +116,23 @@ class Attention(MegatronModule, ABC):
             is_expert=False,
             tp_comm_buffer_name='proj',
         )
-
+        
+        kwargs = {
+            "original_max_position_embeddings": 4096,
+            "beta_fast": 32,
+            "beta_slow": 1,
+            "mscale": 0.707,
+            "mscale_all_dim": 0.707,
+        }
+        
+        # kexin debug yarn
+        self.rotary_pos_emb = DeepseekV2YarnRotaryEmbedding(
+            self.config.qk_rope_head_dim,
+            max_position_embeddings=self.config.max_position_embeddings,
+            scaling_factor=self.config.rotary_scaling_factor,
+            base=self.config.rotary_base,
+            **kwargs,
+        )
     def _checkpointed_attention_forward(
         self,
         query,
