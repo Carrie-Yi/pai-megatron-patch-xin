@@ -304,7 +304,11 @@ def main():
             for filename in in_file_names:
                 with open(filename, "r") as fin:
                     for fc, _ in enumerate(fin):
-                        total_sample_count += (fc + 1)
+                        pass
+                try:    
+                    total_sample_count += (fc + 1)
+                except:
+                    continue
             partition_size = math.ceil(total_sample_count / args.partitions)
 
         # create .jsonl parition files
