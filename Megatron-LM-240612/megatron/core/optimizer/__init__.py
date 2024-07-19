@@ -198,6 +198,20 @@ def _get_megatron_optimizer_based_on_param_groups(
             momentum=config.sgd_momentum,
         )
         init_state_fn = None
+    
+    # kexin deubg
+    elif config.optimizer == 'cpu-adam':
+        from .cpu_adam import CPUAdam
+        optimizer = CPUAdam(param_groups,
+                                     lr=config.lr,
+                                     weight_decay=config.weight_decay,
+                                     betas=(config.adam_beta1, config.adam_beta2),
+                                     eps=config.adam_eps,
+                                     )
+
+        init_state_fn = None
+        cpu_offload = True
+    
     else:
         raise Exception('{} optimizer is not supported.'.format(config.optimizer))
 
